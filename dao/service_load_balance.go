@@ -1,9 +1,12 @@
 package dao
 
 import (
+	"fmt"
 	"github.com/e421083458/gorm"
 	"github.com/gin-gonic/gin"
 	"go_gateway/public"
+	"go_gateway/reverse_proxy/load_balance"
+
 	"net"
 	"net/http"
 	"strings"
@@ -51,6 +54,51 @@ func (t *LoadBalance) GetIPListByModel() []string {
 
 func (t *LoadBalance) GetWeightListByModel() []string {
 	return strings.Split(t.WeightList, ",")
+}
+
+var LoadBalancerHandler *LoadBalancer
+
+type LoadBalancer struct {
+	LoadBalanceMap map[string]load_balance.LoadBalance
+	LoadBanlanceSlice []load_balance.LoadBalance
+	Locker sync.RWMutex
+
+}
+
+func NewLoadBalancer() *LoadBalancer {
+	return &LoadBalancer{
+		LoadBalanceMap: map[string]load_balance.LoadBalance{},
+		LoadBanlanceSlice: []load_balance.LoadBalance{},
+		Locker:            sync.RWMutex{},
+	}
+}
+
+func init()  {
+	LoadBalancerHandler =NewLoadBalancer()
+}
+
+func (l *LoadBalancer) GetLoadBalancer(service *ServiceDetail)(load_balance.LoadBalance,error) {
+	schema := "http"
+	if service.HTTPRule.NeedHttps==1 {
+		schema="https"
+	}
+	prefix:=""
+	if service.HTTPRule.RuleType==public.HTTPRuleTypePrefixURL {
+		prefix=service.HTTPRule.Rule
+	}
+	ipList :=[]string{}
+	weightList := []string{}
+	ipConf := map[string]string{}
+	for ipIndex, ipItem := range ipList {
+		ipConf[ipItem] = weightList[ipIndex]
+	}
+	//fmt.Println("ipConf", ipConf)
+	mConf, err := load_balance.NewLoadBalanceCheckConf(fmt.Sprintf("%s://%s%s", schema, prefix), ipConf)
+	if err != nil {
+		return nil, err
+	}
+	return load_balance.LoadBanlanceFactorWithConf(load_balance.LbType(service.LoadBalance.RoundType), mConf),nil
+
 }
 
 

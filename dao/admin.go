@@ -1,6 +1,7 @@
 package dao
 
 import (
+	"fmt"
 	"github.com/e421083458/gorm"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -36,6 +37,7 @@ func (t *Admin) LoginCheck(c *gin.Context,tx *gorm.DB,param *dto.AdminLoginInput
 		return nil, errors.New("用户信息不存在")
 	}
 	saltPassword :=public.GenSaltPassword(adminInfo.Salt,param.Password)
+	fmt.Println(saltPassword)
 	if adminInfo.Password!=saltPassword	 {
 		return nil,errors.New("密码错误，重新输入")
 	}
